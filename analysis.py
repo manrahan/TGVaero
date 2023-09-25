@@ -353,7 +353,15 @@ def plot_aniso_method_comparison(folder, methods, desired_vars, scale, save, sta
                 plot = plt.plot(directions, means, color='orange', linestyle='-', linewidth=2, label='A_log')
                 # Plot the shaded region around the mean
                 plt.fill_between(directions, np.array(means) + np.array(stdevs), np.array(means) - np.array(stdevs), alpha=0.2, color='orange')
-                
+            
+            if method == methods[-1] and var == 'zd':
+                counts, means, stdevs, directions = calculate_column_stats(df1, ('calc', 'v1', var))
+                res['A_log'] = means
+                print(f'A_log, n= {counts[bin_of_interest]}, {means[bin_of_interest]}, {stdevs[bin_of_interest]}')
+                # Plot the mean line
+                plot = plt.plot(directions, means, color='orange', linestyle='-', linewidth=2, label='A_log')
+                # Plot the shaded region around the mean
+                plt.fill_between(directions, np.array(means) + np.array(stdevs), np.array(means) - np.array(stdevs), alpha=0.2, color='orange')
                 
         plt.grid()
         plt.xlabel('Wind Direction (Wd)')
@@ -430,6 +438,15 @@ def plot_aniso_method_comparison(folder, methods, desired_vars, scale, save, sta
             angles = np.deg2rad(angles)
             # Plot the wind rose lines
             ax2.plot(np.concatenate((angles, [angles[0]])), np.concatenate((frequencies, [frequencies[0]])), color='orange', label='A_log')
+        if method == methods[-1] and var == 'zd':
+            counts, means, stdevs, directions = calculate_column_stats(df1, ('calc', 'v1', var))
+            # Plot the mean line
+            angles = np.array(directions)
+            frequencies = np.array(means)
+            # Convert angles from degrees to radians
+            angles = np.deg2rad(angles)
+            # Plot the wind rose lines
+            ax2.plot(np.concatenate((angles, [angles[0]])), np.concatenate((frequencies, [frequencies[0]])), color='orange', label='A_log')
             
             
         ax2.set_theta_offset(np.pi / 2)
@@ -447,33 +464,102 @@ def plot_aniso_method_comparison(folder, methods, desired_vars, scale, save, sta
 
 def plot_wind_profile(df):
     mask = (df[('Port4', 'ATMOS 22 Ultrasonic Anemometer', '° Wind Direction')] >= 320) & \
-       (df[('Port4', 'ATMOS 22 Ultrasonic Anemometer', '° Wind Direction')] <= 350)
-
+           (df[('Port4', 'ATMOS 22 Ultrasonic Anemometer', '° Wind Direction')] <= 350)
+    
+    
+    
+    i = 20  # index for selecting a specific row
     filtered_df = df[mask]
+    
+    wind_speed = filtered_df[('Port5', 'ATMOS 22 Ultrasonic Anemometer', ' m/s Wind Speed')]
+    
+    print('wind speed', wind_speed.values[i])
     
     methods = ['RT', 'MHO', 'KAN', 'MAC']
     
-    fig, ax = plt.subplots(1,1)
+    colors = {'RT':'red',
+              'MHO':'blue',
+              'KAN':'green',
+              'MAC':'magenta',
+              }
     
-    for i in range(len(filtered_df)):
-        z_0 = filtered_df.iloc[i][('morph', 'RT', 'z0_20596')]
-        z_d = filtered_df.iloc[i][('morph', 'RT', 'zd_20596')]
-        u_star = filtered_df.iloc[i]['calc', 'v2', 'u_star']
-        EWI = filtered_df.iloc[i][('EWI', 'add', 'windSpeed')]
-        
-        y = np.arange(z_0, 100)
-        x = []
-        
-        for z in y:
-            x.append(log_wind_profile(z, np.abs(u_star), z_0, z_d))
+    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+
+    for method in methods:
+        try:
+            z_0 = float(filtered_df.iloc[i][('morph', method, 'z0_20596')])
+            z_d = float(filtered_df.iloc[i][('morph', method, 'zd_20596')])
+            u_star = float(filtered_df.iloc[i]['calc', 'v1', 'USTAR'])
+            EWI = float(filtered_df.iloc[i][('EWI', 'add', 'windSpeed')])
             
-        ax.plot(x, y)
-        print('EWI', EWI)
-        ax.scatter(EWI, 100)
+            date_str = str(filtered_df.index[i])  # Taking the date from DataFrame index
+            
+            if np.isnan(z_0) or np.isnan(z_d):
+                print(f"Invalid z_0 or z_d for method {method}. Skipping.")
+                continue
+
+            y = np.arange(z_0, 100)
+            x = []
         
-        if i ==3:
-            break
-    print(len(filtered_df))
+            for z in y:
+                wind_speed = log_wind_profile(z, np.abs(u_star), z_0, z_d)
+                if wind_speed is not None:
+                    if wind_speed < 0:
+                        x.append(np.nan)  # Replace negative values with nan
+                    else:
+                        x.append(wind_speed)
+                    
+            ax.plot(x, y, label=method, color=colors[method])
+            
+            print(f"Method: {method}")
+            print(f"z_0: {z_0}, z_d: {z_d}, u_star: {u_star}")
+            
+            # Print wind speed at heights z_d and 100
+            wind_speed_at_zd = log_wind_profile(z_d, np.abs(u_star), z_0, 2)
+            wind_speed_at_100 = log_wind_profile(100, np.abs(u_star), z_0, z_d)
+            print(f"Wind speed at height z_2 ({z_d}): {wind_speed_at_zd}")
+            print(f"Wind speed at height 100: {wind_speed_at_100}")
+            
+            if method == methods[-1]:
+                z_0 = float(filtered_df.iloc[i][('calc', 'v1', 'z0')])
+                z_d = float(filtered_df.iloc[i][('calc', 'v1', 'zd')])
+                u_star = float(filtered_df.iloc[i]['calc', 'v1', 'USTAR'])
+                # EWI = float(filtered_df.iloc[i][('EWI', 'add', 'windSpeed')])
+                
+                y = np.arange(z_0, 100)
+                x = []
+            
+                for z in y:
+                    wind_speed = log_wind_profile(z, np.abs(u_star), z_0, z_d)
+                    if wind_speed is not None:
+                        if wind_speed < 0:
+                            x.append(np.nan)  # Replace negative values with nan
+                        else:
+                            x.append(wind_speed)
+                
+                print(f"Method: A_log")
+                print(f"z_0: {z_0}, z_d: {z_d}, u_star: {u_star}")
+                
+                # Print wind speed at heights z_d and 100
+                wind_speed_at_zd = log_wind_profile(z_d, np.abs(u_star), z_0, 2)
+                wind_speed_at_100 = log_wind_profile(100, np.abs(u_star), z_0, z_d)
+                print(f"Wind speed at height z_2 ({z_d}): {wind_speed_at_zd}")
+                print(f"Wind speed at height 100: {wind_speed_at_100}")
+                        
+                ax.plot(x, y, label='A_log', color='orange')
+                
+                
+            
+        except Exception as e:
+            print(f"An error occurred for method {method}: {e}")
+            
+    ax.set_title(f'Extrapolated Logarithmic Wind Profiles for {date_str}')
+    ax.set_xlabel('Wind Speed (m/s)')
+    ax.set_ylabel('Height (m)')
+    ax.grid(True)
+    ax.legend()
+
+    plt.show()
     
                 
 def rmse_with_nan(list1, list2):

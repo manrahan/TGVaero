@@ -299,7 +299,7 @@ if __name__ == "__main__":
     
     df = calculate_Ri(Zu1, Zu2, df)
     
-    res = plot_aniso_method_comparison(r'../outputs/UMEP_outputs_2/', ['RT', 'MHO', 'KAN', 'MAC'], ['z0'], length_scale, True,  logger_and_grid, df, 68)
+    res = plot_aniso_method_comparison(r'../outputs/UMEP_outputs_2/', ['RT', 'MHO', 'KAN', 'MAC'], ['zd'], length_scale, True,  logger_and_grid, df, 68)
     
     df['EWI', 'add', 'windSpeed'] = ws_data['EWI']
     

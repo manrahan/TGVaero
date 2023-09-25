@@ -65,9 +65,14 @@ def calc_ustar(k: float, U1: pd.Series, U2: pd.Series, Zu1: float, Zu2: float) -
     return np.abs(Ustar)
 
 
+
 def log_wind_profile(z, u_star, z_0, z_d):
-    kappa = 0.4  # von Kármán constant
-    return (u_star / kappa) * np.log((z - z_d) / z_0)
+    kappa = 0.4  # von Kármán constant, you can define this elsewhere
+    try:
+        return (u_star / kappa) * np.log((z - z_d) / z_0)
+    except Exception as e:
+        # print(f"Error in log_wind_profile: {e}")
+        return None
 
 # Calculate roughness length (z0)
 def calc_z0(Zu2: float, k: float, U2: pd.Series, Ustar: pd.Series) -> pd.Series:
@@ -75,7 +80,7 @@ def calc_z0(Zu2: float, k: float, U2: pd.Series, Ustar: pd.Series) -> pd.Series:
     return z0
 
 def calc_zd(Zu1: float, Zu2: float, k: float, U1: pd.Series, U2: pd.Series, Ustar: pd.Series) -> pd.Series:
-    zd = (Zu1) - (Zu1-Zu2) / (np.exp(k * (U2-U1) / Ustar)-1)
+    zd = (Zu1) - (Zu2-Zu1) / (np.exp(k * (U2-U1) / Ustar)-1)
     return zd
 
 def fit_from_est(u_star_est, z0_est):
